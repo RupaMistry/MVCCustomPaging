@@ -1,0 +1,51 @@
+public class GridPagingViewModel
+    {
+        public readonly int DefaultPaging = 0;
+        public readonly string EmptyRecordsErrorText = "No items found.";
+
+        public GridPagingViewModel(string controlName, int defaultPaging = 10, string emptyRecordsText = "")
+        {
+            this.ControlName = controlName;
+            this.DefaultPaging = defaultPaging;
+
+            if (!string.IsNullOrEmpty(emptyRecordsText))
+            {
+                this.EmptyRecordsErrorText = emptyRecordsText;
+            }
+        }
+
+        public string DataUrl { get; set; }
+
+        public string ControlName { get; set; }
+
+        public int CurrentPageIndex { get; set; }
+
+        public int TotalRecordsCount { get; set; }
+
+        public int Page
+        {
+            get
+            {
+                return (this.CurrentPageIndex > 1) ? this.CurrentPageIndex : 1;
+            }
+        }
+
+        public int StartIndex
+        {
+            get
+            {
+                return (this.Page == 1 ? 1 : (DefaultPaging * (this.Page - 1) + 1));
+            }
+        }
+
+        public int EndIndex
+        {
+            get
+            {
+                if ((DefaultPaging * this.Page) > TotalRecordsCount && TotalRecordsCount > 0)
+                    return TotalRecordsCount;
+                else
+                    return (DefaultPaging * this.Page);
+            }
+        }
+        }
