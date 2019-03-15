@@ -1,0 +1,193 @@
+create or replace PACKAGE BODY PK_AA_K401ADMIN IS
+
+PROCEDURE pr_adm_getFailedRebalanceData(
+                                p_rebalanceDate IN TB_AA_AUDITRPT_REBAL_LOG.REBALANCE_DATE%TYPE,                         
+                                p_plan IN tb_aa_composite_plan.PLAN_NUMBER%TYPE default NULL,
+                                p_colOrderNumber IN NUMBER,
+                                p_colSortBy IN NUMBER,
+                                p_startRowIndex IN NUMBER,
+                                p_totalRowsCount IN NUMBER,
+                                po_failedRebalance_cur OUT SYS_REFCURSOR
+                                )  AS        
+
+BEGIN 
+
+---Failed Rebalance report page to bind grid
+OPEN po_failedRebalance_cur FOR 
+
+SELECT data.*
+FROM
+  (SELECT a.*
+   FROM
+     ( SELECT 
+              (SELECT cp.plan_number FROM AA.TB_AA_COMPOSITE_PLAN cp 
+                WHERE cp.id = a.composite_plan_id) PlanNumber,
+              SSN,
+              no_failed_rebalances FailedRebalanceTotal,
+              no_failed_days FailedDaysTotal,
+              err ErrorText,
+              (select REPLACE(mapping_error_message,'[EXISTING_MESSAGE]',a.err)
+              from AA.TB_AA_AUDITRPT_REBAL_ERR_MAP
+              where a.err like ('%' ||  TRIM(BOTH ' ' FROM error_message) || '%'))FormattedErrorText,
+              rebalance_date RebalanceDate,
+              DECODE (a.curr_enroll_ind, '1', 'Personal Manager', '2', 'Portfolio Rebalance', '3', 'One Time Implementation', '4', 'EZEnroll', '5', 'Allocation Manager', '6', 'Auto Enroll Into PM', '7', 'Goal Mgr Conversion', '8', 'Personal Manager As Default', '9', 'Form Option', '10', 'One Time Investment Direction', '11', 'One Time Fund Tranfser') CurrentEnrollment,
+              (row_number() over( ORDER BY no_failed_days DESC)) SeqNum,
+              COUNT(*) OVER () FilterTotalcount
+              
+      FROM AA.TB_AA_AUDITRPT_REBAL_LOG a
+      WHERE to_char(a.rebalance_date, 'MM/DD/YYYY') = to_char(p_rebalanceDate, 'MM/DD/YYYY')
+        AND (p_plan IS NULL  OR a.composite_plan_id IN
+                                                      (SELECT id
+                                                          FROM AA.TB_AA_COMPOSITE_PLAN
+                                                          WHERE plan_number IN(p_plan)))
+      ORDER BY 
+         --CASE
+              --WHEN p_colOrderNumber = 0 THEN --no_failed_days DESC;
+              --p_sortExpression * FailedDaysTotal END,
+          CASE
+              WHEN p_colOrderNumber = 1 THEN 
+              p_colSortBy * PlanNumber END,
+          CASE
+              WHEN p_colOrderNumber = 2 THEN
+              p_colSortBy * SSN END,
+          CASE
+              WHEN p_colOrderNumber = 3 THEN 
+              p_colSortBy * FailedRebalanceTotal END,
+          CASE
+              WHEN p_colOrderNumber = 4 THEN
+              p_colSortBy * FailedDaysTotal END,
+          CASE
+              WHEN (p_colOrderNumber = 5 AND p_colSortBy = 1) THEN 
+              ErrorText END ASC,
+          CASE
+              WHEN (p_colOrderNumber = 5 AND p_colSortBy = -1) THEN 
+              ErrorText END DESC, 
+          CASE
+              WHEN (p_colOrderNumber = 6 AND p_colSortBy = 1) THEN 
+              CurrentEnrollment END ASC,
+          CASE
+              WHEN (p_colOrderNumber = 6 AND p_colSortBy = -1) THEN 
+              CurrentEnrollment END DESC,
+          CASE
+              WHEN (p_colOrderNumber = 7 AND p_colSortBy = 1) THEN 
+              RebalanceDate END ASC,
+          CASE
+              WHEN (p_colOrderNumber = 7 AND p_colSortBy = -1) THEN 
+              RebalanceDate END DESC      
+      ) a
+    ) data
+WHERE SeqNum>=p_startRowIndex AND ROWNUM <= p_totalRowsCount;
+       
+ EXCEPTION    
+     WHEN OTHERS THEN    
+      pr_log_errors('PK_AA_K401ADMIN.pr_adm_getFailedRebalanceData');
+     RAISE_APPLICATION_ERROR(-20000,
+                              SQLCODE || ' ' || SQLERRM || ' ' ||
+                              DBMS_UTILITY.FORMAT_ERROR_BACKTRACE); 
+ 
+ END pr_adm_getFailedRebalanceData;
+
+    PROCEDURE pr_adm_getFailedRebErrDetails (
+        p_ssn                          IN     tb_aa_rebalance_log.SSN%TYPE,
+        p_plan                         IN     tb_aa_composite_plan.PLAN_NUMBER%TYPE,
+        p_rebalanceDate                IN     tb_aa_rebalance_log.REBALANCE_DATE%TYPE,
+        p_maxDate                      IN     tb_aa_rebalance_log.REBALANCE_DATE%TYPE,
+        p_colOrderNumber               IN     NUMBER,
+        p_colSortBy                    IN     NUMBER,
+        p_startRowIndex                IN     NUMBER,
+        p_totalRowsCount               IN     NUMBER,
+        po_failedRebalanceDetail_cur      OUT SYS_REFCURSOR)
+    AS
+       
+    BEGIN
+        ---Failed Rebalance report page to bind grid
+        OPEN po_failedRebalanceDetail_cur FOR
+            SELECT data.*
+              FROM (SELECT a.*
+                      FROM (  SELECT lg.rebalance_date
+                                         RebalanceDate,
+                                      lg.err ErrorText,
+                                      (select REPLACE(mapping_error_message,'[EXISTING_MESSAGE]',lg.err)
+                                       from AA.TB_AA_AUDITRPT_REBAL_ERR_MAP
+                                      where lg.err like ('%' ||  TRIM(BOTH ' ' FROM error_message) || '%'))FormattedErrorText,
+                                     ROW_NUMBER ()  OVER (ORDER BY lg.rebalance_date DESC) SeqNum,
+                                     COUNT(*) OVER () FilterTotalcount
+                                FROM AA.tb_aa_rebalance_log lg
+                               WHERE     lg.ssn = p_ssn
+                                     AND trunc(lg.rebalance_date) <= trunc(p_rebalanceDate) and trunc(lg.rebalance_date) >= (p_maxDate)
+                                     AND lg.composite_plan_id =
+                                         (SELECT id
+                                            FROM AA.tb_aa_composite_plan cp
+                                           WHERE cp.plan_number = p_plan)
+                            AND lg.err NOT LIKE '%Rebalance was Successful%'
+                            ORDER BY CASE
+                                         WHEN (    p_colOrderNumber = 1
+                                               AND p_colSortBy = 1)
+                                         THEN
+                                             RebalanceDate
+                                     END ASC,
+                                     CASE
+                                         WHEN (    p_colOrderNumber = 1
+                                               AND p_colSortBy = -1)
+                                         THEN
+                                             RebalanceDate
+                                     END DESC,
+                                     CASE
+                                         WHEN (    p_colOrderNumber = 2
+                                               AND p_colSortBy = 1)
+                                         THEN
+                                             ErrorText
+                                     END ASC,
+                                     CASE
+                                         WHEN (    p_colOrderNumber = 2
+                                               AND p_colSortBy = -1)
+                                         THEN
+                                             ErrorText
+                                     END DESC) a) data
+             WHERE SeqNum >= p_startRowIndex AND SeqNum <= p_totalRowsCount;
+    EXCEPTION
+        WHEN OTHERS
+        THEN
+            pr_log_errors ('PK_AA_K401ADMIN.pr_adm_getFailedRebErrDetails');
+            RAISE_APPLICATION_ERROR (
+                -20000,
+                   SQLCODE
+                || ' '
+                || SQLERRM
+                || ' '
+                || DBMS_UTILITY.FORMAT_ERROR_BACKTRACE);
+    END pr_adm_getFailedRebErrDetails;  
+  
+              
+ END PK_AA_K401ADMIN;
+ 
+ 
+ 
+ 
+ create or replace PACKAGE PK_AA_K401ADMIN IS
+
+--- Model difference - Failed Rebalance report page
+ PROCEDURE pr_adm_getFailedRebalanceData(
+                                p_rebalanceDate IN TB_AA_AUDITRPT_REBAL_LOG.REBALANCE_DATE%TYPE,                         
+                                p_plan IN tb_aa_composite_plan.PLAN_NUMBER%TYPE default NULL,
+                                p_colOrderNumber IN NUMBER,
+                                p_colSortBy IN NUMBER,
+                                p_startRowIndex IN NUMBER,
+                                p_totalRowsCount IN NUMBER,
+                                po_failedRebalance_cur   OUT SYS_REFCURSOR
+                                ) ;
+
+--- Model difference - Failed Rebalance report - popup details page                                
+PROCEDURE pr_adm_getFailedRebErrDetails(
+                                p_ssn IN tb_aa_rebalance_log.SSN%TYPE,
+                                p_plan IN tb_aa_composite_plan.PLAN_NUMBER%TYPE,
+                                p_rebalanceDate IN tb_aa_rebalance_log.REBALANCE_DATE%TYPE,                         
+                                p_maxDate IN tb_aa_rebalance_log.REBALANCE_DATE%TYPE,                         
+                                p_colOrderNumber IN NUMBER,
+                                p_colSortBy IN NUMBER,
+                                p_startRowIndex IN NUMBER,
+                                p_totalRowsCount IN NUMBER,
+                                po_failedRebalanceDetail_cur OUT SYS_REFCURSOR
+                                ) ;
+  
+END PK_AA_K401ADMIN;
