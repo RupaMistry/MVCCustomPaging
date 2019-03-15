@@ -1,0 +1,39 @@
+@model AdviceAdmin.UI.Models.FailedRebalanceDetailsReportViewModel
+
+
+<div class="modal-body">
+    <div class="container">
+        <div class="panel panel-default">
+            <div class="aa-padding-bottom-0 panel-body">
+                @using (Html.BeginForm("ExportErrorDetails", "FailedRebalanceReport", FormMethod.Post))
+                {
+                    <table class="borderless aa-padding-5 table">
+                        <tr>
+                            <td style="width:30%"><strong>Rebalance Run Date:</strong></td>
+                            <td>@Model.RebalanceRunDate.ToShortDateString()</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Plan Number:</strong></td>
+                            <td class="col-md-10">@Model.PlanNumber</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Participant:</strong></td>
+                            <td>@Model.SSN</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Error:</strong></td>
+                            <td>@Model.ErrorText</td>
+                        </tr>
+                    </table>
+
+                    <div class="modal-footer">
+                        <input type="submit" value="Export To Excel" name="action:ExportErrorDetails" class="aa-btn-primary btn" />
+                    </div>
+                }
+                <div id="failedRebalanceDetailsGrid">
+                    @{Html.RenderPartial("ErrorDetailsPopup/_SummaryGridPartialView", @Model);}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
