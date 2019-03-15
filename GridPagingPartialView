@@ -1,0 +1,88 @@
+@model AdviceAdmin.UI.Models.GridPagingViewModel
+@{
+    int offset = 3;
+    double rowPerPage = Model.DefaultPaging;
+    if (Convert.ToDouble(Model.TotalRecordsCount) < Model.DefaultPaging)
+    {
+        rowPerPage = Convert.ToDouble(Model.TotalRecordsCount);
+    }
+    int totalPage = (rowPerPage <= 0.0) ? 0 : Convert.ToInt16(Math.Ceiling(Convert.ToDouble(Model.TotalRecordsCount) / rowPerPage));
+    int current = Model.Page;
+    int record = offset;
+    int pageStart = Convert.ToInt16(Convert.ToDouble(current) - Convert.ToDouble(offset));
+    int pageEnd = Convert.ToInt16(Convert.ToDouble(current) + Convert.ToDouble(offset));
+}
+
+@if (string.IsNullOrWhiteSpace(Model.DataUrl))
+{
+    <span></span>
+}
+else if (Model.TotalRecordsCount <= 0)
+{
+    <span style="float:left;color:red">@Model.EmptyRecordsErrorText</span>
+}
+else
+{
+    <div style="float:left;padding-top:0px !important">
+        Showing @Model.StartIndex to @Model.EndIndex of @Model.TotalRecordsCount entries.
+    </div>
+
+    <input type="hidden" id="@("hidPagingDataUrl" + Model.ControlName)" value="@Model.DataUrl" />
+    <input type="hidden" id="@("hidLastSelectedPageID" + Model.ControlName)" value="@Model.Page" />
+
+    <nav style="float:right;margin-top:-21px !important" aria-label="Page">
+        <ul class="pagination justify-content-end">
+
+            @*Set Previous Button Logic*@
+            @if (current > 1)
+            {
+                <li class="page-item"><a class="page-link" href="#" onclick="loadGridByPageID(@Model.Page - 1)"><<</a></li>
+            }
+            else
+            {
+                <li class="disabled"><a href="#" aria-label="Previous"><span aria-hidden="true"><<</span></a></li>
+            }
+
+            @*Show dots for middle page indexes*@
+            @if (current > (offset + 1))
+            {
+                <li class="page-item"><a class="page-link" href="#" onclick="loadGridByPageID(1)" name="page1">1</a></li>
+                <li class="disabled spacing-dot"><a href="#">...</a></li>
+            }
+
+            @*Construct Page index based on Total number of pages in list*@
+            @for (int i = 1; i <= totalPage; i++)
+            {
+                if (pageStart <= i && pageEnd >= i)
+                {
+                    if (i == current)
+                    {
+                        <li class="page-item active"><a class="page-link">@i<span class="sr-only">(current)</span></a></li>
+                    }
+                    else
+                    {
+                        <li class="page-item"><a class="page-link" href="#" onclick="loadGridByPageID(@i)">@i</a></li>
+                    }
+                }
+            }
+
+            @if (totalPage > pageEnd)
+            {
+                record = offset;
+                <li class="disabled spacing-dot"><a href="#">...</a></li>
+                <li><a href="#" onclick="loadGridByPageID(@totalPage)">@totalPage</a></li>
+            }
+
+            @*Set Next Button Logic*@
+            @if (current < totalPage)
+            {
+                <li class="next page-item"><a href="#" class="page-link" onclick="loadGridByPageID((@Model.Page + 1))">>></a></li>
+            }
+            else
+            {
+                <li class="disabled"><a href="#" aria-label="Previous"><span aria-hidden="true">>></span></a></li>
+            }
+
+        </ul>
+    </nav>
+}
