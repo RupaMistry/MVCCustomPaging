@@ -1,0 +1,299 @@
+ public FailedRebalanceErrorSummaryResponse GetFailedRebalanceErrorSummaryList(FailedRebalanceRequest failedRebalanceRequest)
+        {
+            return this._adviceAdminBusiness.GetFailedRebalanceErrorSummaryList(failedRebalanceRequest);
+        }
+
+        public FailedRebalanceErrorSummaryDetailsResponse GetFailedRebalanceErrorDetails(FailedRebalanceErrorDetailRequest failedRebalanceDetailsRequest)
+        {
+            return this._adviceAdminBusiness.GetFailedRebalanceErrorDetails(failedRebalanceDetailsRequest);
+        }
+        
+        -- Businee
+          public FailedRebalanceErrorSummaryResponse GetFailedRebalanceErrorSummaryList(FailedRebalanceRequest failedRebalanceRequest)
+        {
+            var failedRebalanceResponse = new FailedRebalanceErrorSummaryResponse();
+
+            MLEvents.TraceEntry("GetFailedRebalanceErrorsList");
+
+            try
+            {
+                if (this.ValidateFailedRebalanceRequest(failedRebalanceRequest))
+                {
+                    failedRebalanceResponse = this._oracleReportsAccessor.GetFailedRebalanceErrorSummaryList(failedRebalanceRequest);
+                    failedRebalanceResponse.IsSuccess = true;
+                }
+                else
+                    failedRebalanceResponse.IsSuccess = false;
+            }
+            catch (Exception ex)
+            {
+                failedRebalanceResponse.IsSuccess = false;
+                MLEvents.LogError(ex, "GetFailedRebalanceErrorsList failed.", string.Empty);
+            }
+
+            return failedRebalanceResponse;
+        }
+
+        public FailedRebalanceErrorSummaryDetailsResponse GetFailedRebalanceErrorDetails(FailedRebalanceErrorDetailRequest failedRebalanceDetailsRequest)
+        {
+            var failedRebalanceDetailsResponse = new FailedRebalanceErrorSummaryDetailsResponse();
+
+            MLEvents.TraceEntry("GetFailedRebalanceErrorDetails");
+
+            try
+            {
+                if (this.ValidateFailedRebalanceDetailsRequest(failedRebalanceDetailsRequest))
+                {
+                    failedRebalanceDetailsResponse = this._oracleReportsAccessor.GetFailedRebalanceErrorDetails(failedRebalanceDetailsRequest);
+                    failedRebalanceDetailsResponse.IsSuccess = true;
+                }
+                else
+                    failedRebalanceDetailsResponse.IsSuccess = false;
+            }
+            catch (Exception ex)
+            {
+                failedRebalanceDetailsResponse.IsSuccess = false;
+                MLEvents.LogError(ex, "GetFailedRebalanceErrorDetails failed.", string.Empty);
+            }
+
+            return failedRebalanceDetailsResponse;
+        }
+        
+        
+         private bool ValidateFailedRebalanceRequest(FailedRebalanceRequest request)
+        {
+            bool isValid = false;
+
+            if (request == null)
+            {
+                MLEvents.LogError(LoggerConstants.FailedRebalanceRequestIsNull, request, "ValidateFailedRebalanceRequest");
+            }
+            else if (request.RebalanceDate <= DateTime.MinValue)
+            {
+                MLEvents.LogError(LoggerConstants.RebalanceDateInvalid, request, "ValidateFailedRebalanceRequest");
+            }
+            else if (request.ColumnSortBy > 1 || request.ColumnSortBy < -1)
+            {
+                MLEvents.LogError(LoggerConstants.SortByInvalid, request, "ValidateFailedRebalanceRequest");
+            }
+            else { isValid = true; }
+
+            return isValid;
+        }
+
+        private bool ValidateFailedRebalanceDetailsRequest(FailedRebalanceErrorDetailRequest request)
+        {
+            bool isValid = false;
+
+            if (request == null)
+            {
+                MLEvents.LogError(LoggerConstants.FailedRebalanceDetailsRequestIsNull, request, "ValidateFailedRebalanceDetailsRequest");
+            }
+            else if (request.RebalanceDate <= DateTime.MinValue)
+            {
+                MLEvents.LogError(LoggerConstants.RebalanceDateInvalid, request, "ValidateFailedRebalanceDetailsRequest");
+            }
+            else if (request.FailedDaysTotal <= 0)
+            {
+                MLEvents.LogError(LoggerConstants.FailedDaysTotalInvalid, request, "ValidateFailedRebalanceDetailsRequest");
+            }
+            else if (string.IsNullOrEmpty(request.PlanNumber))
+            {
+                MLEvents.LogError(LoggerConstants.PlanNumberInvalid, request, "ValidateFailedRebalanceDetailsRequest");
+            }
+            else if (string.IsNullOrEmpty(request.Participant))
+            {
+                MLEvents.LogError(LoggerConstants.ParticipantInvalid, request, "ValidateFailedRebalanceDetailsRequest");
+            }
+            else if (request.ColumnSortBy > 1 || request.ColumnSortBy < -1)
+            {
+                MLEvents.LogError(LoggerConstants.SortByInvalid, request, "ValidateFailedRebalanceDetailsRequest");
+            }
+            else { isValid = true; }
+
+            return isValid;
+        }
+        
+        -- Accessor
+            public FailedRebalanceErrorSummaryResponse GetFailedRebalanceErrorSummaryList(FailedRebalanceRequest failedRebalanceRequest)
+        {
+            FailedRebalanceErrorSummaryResponse failedRebalanceResponse = new FailedRebalanceErrorSummaryResponse();
+
+            try
+            {
+                var failedRebalanceCommand = this.GetFailedRebalanceCommand(failedRebalanceRequest);
+
+                using (IDataReader dr = (IDataReader)MerrillLynch.Framework.Data.DataAccess.Execute(failedRebalanceCommand))
+                {
+                    this._dataSet.Load(dr, LoadOption.OverwriteChanges, new string[] { DataTableConstants.FailedRebalanceErrorsTable });
+                    failedRebalanceResponse.IsSuccess = true;
+                }
+
+                if (failedRebalanceResponse.IsSuccess && this._dataSet != null && this._dataSet.Tables.Count > 0 && this._dataSet.Tables[DataTableConstants.FailedRebalanceErrorsTable].Rows.Count > 0)
+                {
+                    int totalCount = 0;
+                    failedRebalanceResponse.FailedRebalanceErrorList = this.ReturnFailedRebalanceSummaryList(ref totalCount);
+                    failedRebalanceResponse.FilterTotalcount = totalCount;
+                }
+            }
+            catch (Exception ex)
+            {
+                failedRebalanceResponse.IsSuccess = false;
+                MLEvents.LogError(ex, "AdviceAdminDataAccess - GetFailedRebalanceErrorsList failed.", failedRebalanceResponse);
+                throw;
+            }
+            finally
+            {
+                this._dataSet.Clear();
+            }
+
+            return failedRebalanceResponse;
+        }
+
+        public FailedRebalanceErrorSummaryDetailsResponse GetFailedRebalanceErrorDetails(FailedRebalanceErrorDetailRequest failedRebalanceDetailsRequest)
+        {
+            FailedRebalanceErrorSummaryDetailsResponse failedRebalanceDetailsResponse = new FailedRebalanceErrorSummaryDetailsResponse();
+
+            try
+            {
+                var failedRebalanceCommand = this.GetFailedRebalanceDetailsCommand(failedRebalanceDetailsRequest);
+
+                using (IDataReader dr = (IDataReader)MerrillLynch.Framework.Data.DataAccess.Execute(failedRebalanceCommand))
+                {
+                    this._dataSet.Load(dr, LoadOption.OverwriteChanges, new string[] { DataTableConstants.FailedRebalanceErrorsDetailsTable });
+                    failedRebalanceDetailsResponse.IsSuccess = true;
+                }
+
+                if (failedRebalanceDetailsResponse.IsSuccess && this._dataSet != null && this._dataSet.Tables.Count > 0 && this._dataSet.Tables[DataTableConstants.FailedRebalanceErrorsDetailsTable].Rows.Count > 0)
+                {
+                    int totalCount = 0;
+                    failedRebalanceDetailsResponse.FailedRebalanceErrorDetailsList = this.ReturnFailedRebalanceErrorDetailsList(ref totalCount);
+                    failedRebalanceDetailsResponse.FilterTotalcount = totalCount;
+                }
+            }
+            catch (Exception ex)
+            {
+                failedRebalanceDetailsResponse.IsSuccess = false;
+                MLEvents.LogError(ex, "AdviceAdminDataAccess - GetFailedRebalanceErrorDetails failed.", failedRebalanceDetailsResponse);
+                throw;
+            }
+            finally
+            {
+                this._dataSet.Clear();
+            }
+
+            return failedRebalanceDetailsResponse;
+        }
+        
+         [Serializable]
+    public class FailedRebalanceErrorDetailRequest 
+    {
+        public DateTime RebalanceDate { get; set; }
+
+        public string PlanNumber { get; set; }
+
+        public int ColumnOrderNumber { get; set; }
+
+        public int ColumnSortBy { get; set; }
+
+        public int StartRowIndex { get; set; }
+
+        public int TotalRowsCount { get; set; }
+
+        public int FailedDaysTotal { get; set; }
+
+        public string Participant { get; set; }
+    }
+    
+     [Serializable]
+    public class FailedRebalanceErrorDetailResponse : FailedRebalanceErrorDetails
+    {
+    }
+    
+     [Serializable]
+    public class FailedRebalanceErrorSummaryDetailsResponse : BaseResponse
+    {
+        public List<FailedRebalanceErrorDetails> FailedRebalanceErrorDetailsList { get; set; }
+
+        public int FilterTotalcount { get; set; }
+    }
+    
+     [Serializable]
+    public class FailedRebalanceErrorDetails
+    {
+        public DateTime RebalanceDate { get; set; }
+
+        public string ErrorText { get; set; }
+
+        public int SeqNum { get; set; }
+    }
+
+
+    [Serializable]
+    public class FailedRebalanceSummaryDetails : FailedRebalanceErrorDetails
+    {
+        public string PlanNumber { get; set; }
+
+        public string SSN { get; set; }
+
+        public int FailedRebalanceTotal { get; set; }
+
+        public int FailedDaysTotal { get; set; }
+
+        public string CurrentEnrollment { get; set; }
+    }
+
+    [Serializable]
+    public class FailedRebalanceErrorSummaryResponse : BaseResponse
+    {
+        public List<FailedRebalanceSummaryDetails> FailedRebalanceErrorList { get; set; }
+
+        public int FilterTotalcount { get; set; }
+    } [Serializable]
+    public class FailedRebalanceErrorDetails
+    {
+        public DateTime RebalanceDate { get; set; }
+
+        public string ErrorText { get; set; }
+
+        public int SeqNum { get; set; }
+    }
+
+
+    [Serializable]
+    public class FailedRebalanceSummaryDetails : FailedRebalanceErrorDetails
+    {
+        public string PlanNumber { get; set; }
+
+        public string SSN { get; set; }
+
+        public int FailedRebalanceTotal { get; set; }
+
+        public int FailedDaysTotal { get; set; }
+
+        public string CurrentEnrollment { get; set; }
+    }
+
+    [Serializable]
+    public class FailedRebalanceErrorSummaryResponse : BaseResponse
+    {
+        public List<FailedRebalanceSummaryDetails> FailedRebalanceErrorList { get; set; }
+
+        public int FilterTotalcount { get; set; }
+    }
+    
+     [Serializable]
+    public class FailedRebalanceRequest
+    {
+        public DateTime RebalanceDate { get; set; }
+
+        public string PlanNumber { get; set; }
+
+        public int ColumnOrderNumber { get; set; }
+
+        public int ColumnSortBy { get; set; }
+
+        public int StartRowIndex { get; set; }
+
+        public int TotalRowsCount { get; set; }
+    }
