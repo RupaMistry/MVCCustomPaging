@@ -1,0 +1,33 @@
+public class FailedRebalanceReportViewModel
+    {
+        private readonly string _controlName = "FR";
+       
+        public FailedRebalanceReportViewModel()
+        {
+            this.FilterCriteriaModel = new ReportFilterCriteriaViewModel()
+            {
+                ModelPropertyName = "FilterCriteriaModel",
+                DisplayReportType = AdviceAdmin.Utility.Constants.ReportType.FailedRebalance,
+                IsPlanAllSelected = true
+            };
+
+            this.PagingModel = new GridPagingViewModel(this._controlName, 20, "No rebalance summary found for the selected date.");
+
+            this.SortingViewModel = new GridSortingViewModel()
+            {
+                ControlName = this._controlName,
+                ColumnOrderNumber = 0,
+                ColumnSortBy = Constants.SortDirectionEnum.Descending
+            };
+        }
+
+        public ReportFilterCriteriaViewModel FilterCriteriaModel { get; set; }
+
+        public string ExcelDisabled { get; set; }
+
+        public GridPagingViewModel PagingModel{ get; set; }
+
+        public GridSortingViewModel SortingViewModel { get; set; }
+
+        public List<AdviceAdmin.DomainModels.FailedRebalanceError> FailedRebalanceErrorList { get; set; }
+    }
