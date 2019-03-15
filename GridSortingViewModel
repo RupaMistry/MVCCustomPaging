@@ -1,0 +1,8 @@
+ public class GridSortingViewModel
+    {
+        public string ControlName { get; set; }    
+
+        public int ColumnOrderNumber { get; set; }
+
+        public Constants.SortDirectionEnum ColumnSortBy { get; set; }
+    }
