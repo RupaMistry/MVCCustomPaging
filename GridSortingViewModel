@@ -6,3 +6,9 @@
 
         public Constants.SortDirectionEnum ColumnSortBy { get; set; }
     }
+
+ public enum SortDirectionEnum : int
+        {
+            Ascending = 1,
+            Descending = -1
+        }
