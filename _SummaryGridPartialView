@@ -1,0 +1,28 @@
+@model AdviceAdmin.UI.Models.FailedRebalanceDetailsReportViewModel
+
+@if (Model.FailedRebalanceErrorDetailsList != null && Model.FailedRebalanceErrorDetailsList.Count > 0)
+{
+    { Html.RenderPartial("_GridSortingPartialView", @Model.SortingViewModel); }
+    <div>
+        <table class="table table-hover table-striped table-bordered table-sm dataTables_wrapper no-footer">
+            <thead>
+                <tr>
+                    <th style="text-align:center"><a href="#" onclick="sortData(1)">Rebalance Date</a></th>
+                    <th style="text-align:center"><a href="#" onclick="sortData(2)">Error Message</a></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var detail in Model.FailedRebalanceErrorDetailsList)
+                {
+                    <tr>
+                        <td>@detail.RebalanceDate.ToShortDateString()</td>
+                        <td>@detail.ErrorText</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+<div>
+    @{Html.RenderPartial("_GridPagingPartialView", @Model.PagingModel);}
+</div>
