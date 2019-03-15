@@ -1,0 +1,23 @@
+@model AdviceAdmin.UI.Models.GridSortingViewModel
+
+<style>
+    .gridSortStyle {
+    }
+</style>
+<div class="gridSortStyle" id="@Model.ControlName">
+
+    @Html.HiddenFor(model => model.ColumnOrderNumber, new { id = "ColumnOrderNumber" + @Model.ControlName })
+    @Html.HiddenFor(model => model.ColumnSortBy, new { id = "ColumnSortBy" + @Model.ControlName, @value = (int)Model.ColumnSortBy })
+
+    <script type="text/javascript">
+        var colSortByName = "";
+        var colOrderNumber = "";
+        var hidLastSelectedPageID = "";
+
+        // Initializes partial view variables only when its loaded or rendered by parent view.
+        $(document).ready(function () {
+            initializeGridSortingView();
+        });
+
+    </script>
+</div>
