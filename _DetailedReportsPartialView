@@ -1,0 +1,61 @@
+@model AdviceAdmin.UI.Models.FailedRebalanceReportViewModel
+
+<style type="text/css">
+    table.table th a {
+        color: white;
+    }
+</style>
+<div>
+
+    @if (Model.FailedRebalanceErrorList != null && Model.FailedRebalanceErrorList.Count > 0)
+    {
+        { Html.RenderPartial("_GridSortingPartialView", @Model.SortingViewModel); }
+
+        <table class="table table-hover table-striped table-bordered table-sm dataTables_wrapper no-footer">
+            <thead>
+                <tr>
+                    <th style="text-align:center"><a href="#" onclick="sortData(1)">Participant</a></th>
+                    <th style="text-align:center"><a href="#" onclick="sortData(2)">Plan Number</a></th>
+                    <th style="text-align:center"><a href="#" onclick="sortData(3)">Number of Failed Rebalances</a></th>
+                    <th style="text-align:center"><a href="#" onclick="sortData(4)">Number of Days</a></th>
+                    <th style="text-align:center"><a href="#" onclick="sortData(5)">Last Error Message</a></th>
+                    <th style="text-align:center"><a href="#" onclick="sortData(6)">Enrollment Type</a></th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (int i = 0; i < Model.FailedRebalanceErrorList.Count; i++)
+                {
+                    var stats = Model.FailedRebalanceErrorList[i];
+                    <tr id="trFailedRebalance_@i">
+                        <td align="left"><a href="#" onclick="openSummaryDetailPopup(@i, event)">@stats.SSN</a></td>
+                        <td align="left"><span id="PlanNumber">@stats.PlanNumber</span></td>
+                        <td align="left">@stats.FailedRebalanceTotal</td>
+                        <td align="left">@stats.FailedDaysTotal</td>
+                        <td align="left">@stats.ErrorText</td>
+                        <td align="left">@stats.CurrentEnrollment</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <div id="divSummaryDetailPopup" class="modal fade">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="aa-modal-header modal-header ">
+                        <button type="button" class="close" onclick="closeSummaryDetailPopup()"> &times;</button>
+                        <div class="modal-title aa-modal-title" id="popupHeaderTxt"></div>
+                    </div>
+                    <div id="failedRebalanceDetailsIndex">
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <div>
+        @{Html.RenderPartial("_GridPagingPartialView", @Model.PagingModel);}
+    </div>
+
+    <input type="hidden" id="hidPopupDataUrl" value="@Url.Action("GetFailedRebalanceErrorDetails", "FailedRebalanceReport")" />
+</div>
+
