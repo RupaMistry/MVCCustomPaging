@@ -1,0 +1,309 @@
+ public class FailedRebalanceReportController : BaseController
+    {
+        private const string CONST_FILTERTEMPDATA = "FilterTempData";
+        private const string CONST_POPUPTEMPDATA = "PopupTempData";
+        private const string CONST_EXPORTFILENAME = "MLII_Report_Stat.csv";
+        private const string CONST_EXPORTERRORDETAILSFILENAME = "MLII_Rebalance.xls";
+        private const string CONST_FAILEDREBALANCEFILTERLOG = "Plan Number- {0}, Datetime- {1}";
+        private const string CONST_FAILEDREBALANCEDETAILSFILTERLOG = " ";
+
+        private FailedRebalanceExcelExporter<FailedRebalanceError> _excelExporter = null;
+        private FailedRebalanceExcelExporter<BaseFailedRebalance> _frExcelExporter = null;
+
+        public FailedRebalanceReportController()
+        {
+            this._excelExporter = new FailedRebalanceExcelExporter<FailedRebalanceError>();
+            this._frExcelExporter = new FailedRebalanceExcelExporter<BaseFailedRebalance>();
+        }
+
+        [HttpGet]
+        public ActionResult Index()
+        {
+            var viewModel = this.GetDefaultFailedRebalanceReportViewModel();
+
+            return View(viewModel);
+        }
+
+        [HttpPost]
+        [MultipleButton(Name = "action", Argument = "Submit")]
+        [ValidateAntiForgeryToken]
+        public ActionResult Submit(FailedRebalanceReportViewModel model)
+        {
+            if (this.ValidateModel(model))
+            {
+                this.LogUserActivity("User has viewed the Report.", model);
+
+                this.BindErrorSummaryList(model);
+            }
+
+            return View("Index", model);
+        }
+
+        [HttpPost]
+        [MultipleButton(Name = "action", Argument = "Export")]
+        [ValidateAntiForgeryToken]
+        public ActionResult Export(FailedRebalanceReportViewModel model)
+        {
+            if (this.ValidateModel(model))
+            {
+                this.LogUserActivity("User has exported the Report.", model);
+
+                byte[] result = this.GetExportedData(model, CONST_EXPORTFILENAME);
+
+                TempData.Keep(CONST_FILTERTEMPDATA);
+
+                return File(result, System.Net.Mime.MediaTypeNames.Application.Octet, CONST_EXPORTFILENAME);
+            }
+
+            return View("Index", model);
+        }
+
+        [HttpPost]
+        public ActionResult ExportErrorDetails()
+        {
+            this.LogUserActivity("User has Exported the Report.");
+
+            var model = TempData[CONST_POPUPTEMPDATA] as FailedRebalanceDetailsReportViewModel;
+
+            byte[] result = this.GetExportedData(model, CONST_EXPORTERRORDETAILSFILENAME);
+
+            TempData.Keep(CONST_FILTERTEMPDATA);
+            TempData.Keep(CONST_POPUPTEMPDATA);
+
+            return File(result, System.Net.Mime.MediaTypeNames.Application.Octet, CONST_EXPORTERRORDETAILSFILENAME);
+        }
+
+        [HttpPost]
+        public ActionResult GetListByIndex(int currentPageIndex, GridSortingViewModel sortingModel)
+        {
+            var model = TempData[CONST_FILTERTEMPDATA] as FailedRebalanceReportViewModel;
+
+            model.PagingModel.CurrentPageIndex = currentPageIndex;
+            model.SortingViewModel.ColumnOrderNumber = sortingModel.ColumnOrderNumber;
+            model.SortingViewModel.ColumnSortBy = sortingModel.ColumnSortBy;
+
+            BindErrorSummaryList(model);
+
+            return PartialView("_DetailedReportsPartialView", model);
+        }
+
+        [HttpPost]
+        public ActionResult GetErrorDetailsListByIndex(int currentPageIndex, GridSortingViewModel sortingModel)
+        {
+            var detailsReportModel = TempData[CONST_POPUPTEMPDATA] as FailedRebalanceDetailsReportViewModel;
+
+            detailsReportModel.PagingModel.CurrentPageIndex = currentPageIndex;
+            detailsReportModel.SortingViewModel.ColumnOrderNumber = sortingModel.ColumnOrderNumber;
+            detailsReportModel.SortingViewModel.ColumnSortBy = sortingModel.ColumnSortBy;
+
+            BindErrorDetailsList(detailsReportModel);
+
+            return PartialView("ErrorDetailsPopup/_SummaryGridPartialView", detailsReportModel);
+        }
+
+        [HttpGet]
+        public ActionResult GetFailedRebalanceErrorDetails(FailedRebalanceDetailsReportViewModel detailsReportModel)
+        {
+            this.LogUserActivity("User has viewed the Report.");
+
+            var failedRebalanceReportViewModel = TempData[CONST_FILTERTEMPDATA] as FailedRebalanceReportViewModel;
+            detailsReportModel.RebalanceRunDate = failedRebalanceReportViewModel.FilterCriteriaModel.RebalanceRunDate;
+
+            this.BindErrorDetailsList(detailsReportModel);
+
+            TempData.Keep(CONST_POPUPTEMPDATA);
+
+            return PartialView("ErrorDetailsPopup/_SummaryIndexPartialView", detailsReportModel);
+        }
+
+        #region "Private Methods"
+
+        private FailedRebalanceReportViewModel GetDefaultFailedRebalanceReportViewModel()
+        {
+            return new FailedRebalanceReportViewModel()
+            {
+                ExcelDisabled = "disabled"
+            };
+        }
+
+        private bool ValidateModel(FailedRebalanceReportViewModel model)
+        {
+            if (model.FilterCriteriaModel.RebalanceRunDate > DateTime.Today)
+            {
+                ModelState.AddModelError("RebalanceRunDate", "Please select a valid RebalanceRun Date.");
+            }
+
+            if (!model.FilterCriteriaModel.IsPlanAllSelected && string.IsNullOrEmpty(model.FilterCriteriaModel.PlanNumber))
+            {
+                ModelState.AddModelError("PlanNumber", "Please enter a valid Plan Number.");
+            }
+
+            return ModelState.IsValid;
+        }
+
+        private void LogUserActivity(string comments, FailedRebalanceReportViewModel model = null)
+        {
+            string plan = (model != null) ? (model.FilterCriteriaModel.IsPlanAllSelected ? Constants.AllPlans : model.FilterCriteriaModel.PlanNumber) : string.Empty;
+
+            UserAccessActivity userLog = new UserAccessActivity()
+            {
+                AuditDateTime = DateTime.Now,
+                Category = Constants.RebalanceCategory,
+                Comments = comments,
+                PageName = (model != null) ? Constants.FailedRebalanceSummaryPageName : Constants.FailedRebalanceDetailsPageName,
+                LoginUser = User.Identity.Name,
+                FilterCriteria = (model != null) ? string.Format(CONST_FAILEDREBALANCEFILTERLOG, plan, model.FilterCriteriaModel.RebalanceRunDate) : CONST_FAILEDREBALANCEDETAILSFILTERLOG
+            };
+
+            base.AdviceAdminService.LogUserActivity(userLog);
+        }
+
+        private void BindErrorSummaryList(FailedRebalanceReportViewModel model)
+        {
+            var filterDetails = this.GetFilterDetails(model);
+
+            var response = base.AdviceAdminService.GetFailedRebalanceErrorSummaryList(filterDetails);
+
+            if (response != null)
+            {
+                model.FailedRebalanceErrorList = response.FailedRebalanceErrorList;
+                model.PagingModel.TotalRecordsCount = response.FilterTotalcount;
+                model.ExcelDisabled = "";
+            }
+            else
+            {
+                model.ExcelDisabled = "disabled";
+            }
+
+            TempData[CONST_FILTERTEMPDATA] = model;
+
+            model.PagingModel.DataUrl = Url.Action("GetListByIndex", "FailedRebalanceReport");
+        }
+
+        private byte[] GetExportedData(FailedRebalanceReportViewModel model, string filename)
+        {
+            byte[] result = null;
+
+            try
+            {
+                var request = this.GetFilterDetails(model);
+                request.TotalRowsCount = this.GetTotalCount(false);
+
+                var response = base.AdviceAdminService.GetFailedRebalanceErrorSummaryList(request);
+
+                List<Tuple<string, string>> additionalData = new List<Tuple<string, string>>()
+                {
+                     new Tuple<string,string>("Rebalance Errors Summary:",string.Empty),
+                     new Tuple<string,string>("Rebalance Run Date: " + model.FilterCriteriaModel.RebalanceRunDate.ToString("MM/dd/yyyy"), string.Empty)
+                };
+
+                this._excelExporter.AdditionalData = additionalData;
+                result = this._excelExporter.GetFileStream(filename, response.FailedRebalanceErrorList, new[] { "SeqNum", "RebalanceDate" });
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+
+            return result;
+        }
+
+        private int GetTotalCount(bool isPopupEnabled)
+        {
+            dynamic model = null;
+
+            if (!isPopupEnabled)
+                model = TempData[CONST_FILTERTEMPDATA] as FailedRebalanceReportViewModel;
+            else
+                model = TempData[CONST_POPUPTEMPDATA] as FailedRebalanceDetailsReportViewModel;
+
+            if (model != null)
+                return (model.PagingModel.TotalRecordsCount > 0) ? model.PagingModel.TotalRecordsCount : Int32.MaxValue;
+            else
+                return Int32.MaxValue;
+        }
+
+        private FailedRebalanceListFilter GetFilterDetails(FailedRebalanceReportViewModel model)
+        {
+            return new FailedRebalanceListFilter()
+            {
+                RebalanceDate = model.FilterCriteriaModel.RebalanceRunDate,
+                PlanNumber = (model.FilterCriteriaModel.IsPlanAllSelected) ? string.Empty : model.FilterCriteriaModel.PlanNumber,
+                StartRowIndex = model.PagingModel.StartIndex,
+                TotalRowsCount = model.PagingModel.DefaultPaging,
+                ColumnOrderNumber = model.SortingViewModel.ColumnOrderNumber,
+                ColumnSortBy = Convert.ToInt32(model.SortingViewModel.ColumnSortBy)
+            };
+        }
+
+        private FailedRebalanceDetailsFilter GetPopupFilterDetails(FailedRebalanceDetailsReportViewModel model)
+        {
+
+            return new FailedRebalanceDetailsFilter()
+            {
+                RebalanceDate = model.RebalanceRunDate,
+                FailedDaysTotal = model.FailedDaysTotal,
+                PlanNumber = model.PlanNumber,
+                Participant = model.SSN,
+                StartRowIndex = model.PagingModel.StartIndex,
+                TotalRowsCount = model.PagingModel.EndIndex,
+                ColumnOrderNumber = model.SortingViewModel.ColumnOrderNumber,
+                ColumnSortBy = Convert.ToInt32(model.SortingViewModel.ColumnSortBy)
+            };
+        }
+
+        private void BindErrorDetailsList(FailedRebalanceDetailsReportViewModel model)
+        {
+            var filterDetails = this.GetPopupFilterDetails(model);
+
+            var response = base.AdviceAdminService.GetFailedRebalanceErrorDetails(filterDetails);
+
+            if (response != null)
+            {
+                model.FailedRebalanceErrorDetailsList = response.FailedRebalanceErrorDetailsList;
+                model.PagingModel.TotalRecordsCount = response.FilterTotalcount;
+            }
+
+            TempData.Keep(CONST_FILTERTEMPDATA);
+            TempData[CONST_POPUPTEMPDATA] = model;
+            TempData.Keep(CONST_POPUPTEMPDATA);
+
+            model.PagingModel.DataUrl = Url.Action("GetErrorDetailsListByIndex", "FailedRebalanceReport");
+        }
+
+        private byte[] GetExportedData(FailedRebalanceDetailsReportViewModel model, string filename)
+        {
+            byte[] result = null;
+
+            try
+            {
+                List<Tuple<string, string>> additionalData = new List<Tuple<string, string>>()
+                {
+                     new Tuple<string,string>("Failed Rebalance Detail:",string.Empty),
+                     new Tuple<string,string>("Rebalance Run Date:",model.RebalanceRunDate.ToString("MM/dd/yyyy")),
+                     new Tuple<string,string>("Plan Number :", model.PlanNumber),
+                     new Tuple<string,string>("PARTICIPANT :",model.SSN),
+                     new Tuple<string,string>("Error :",model.ErrorText),
+                };
+
+                var request = this.GetPopupFilterDetails(model);
+                request.StartRowIndex = 1;
+                request.TotalRowsCount = this.GetTotalCount(true);
+
+                var response = base.AdviceAdminService.GetFailedRebalanceErrorDetails(request);
+                this._frExcelExporter.AdditionalData = additionalData;
+                this._frExcelExporter.IsDetailedExport = true;
+                var dataList = (response == null) ? new List<BaseFailedRebalance>() : response.FailedRebalanceErrorDetailsList;
+
+                result = this._frExcelExporter.GetFileStream(filename, dataList, new[] { "SeqNum" }, 1);
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+
+            return result;
+        }
+
+        #endregion
+    }
