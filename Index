@@ -41,3 +41,18 @@
 </div>
 
 <br />
+
+Blob storage
+
+Binary Large OBject storage offered by Microsoft azure as a storage service is used to store collection of Binary Data or objects such as images, videos, and sound. Now such data been non-structured in nature are categorized as Objects and are as stored as a single entity under the Azure umbrella. 
+
+Lets say, we have a requirement of storing all the old Physical Hard File documents for a Goverment system online, we can either simply scan and then store the image or pdf files on the IIS Server, then possibly residing under the new applications directory, turning the response time to be slow. OR Use the storage service of Azure for storing such massive amounts of unstructured scallable data and leveraging your new application to support uploading, streaming and downloading straight from BLOB Storage. Well, random access to application data from anywhere is too a big, YES!
+
+Azure seemlessly manages the BLOB Objects access by using Tiers.
+
+1.    Hot Tier
+2. Cool Tier
+3. Archive Tier
+4. Premium Tier
+
+
